@@ -1,0 +1,222 @@
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+import datetime
+import os
+
+
+class RestaurantBillingSystem:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Dynamic Restaurant Billing System")
+        self.root.geometry("800x600")
+
+        # Frame for Tab Control
+        self.tab_control_frame = tk.Frame(root)
+        self.tab_control_frame.pack(fill="both", expand=True)
+
+        # Initialize Tab Control
+        self.tab_control = ttk.Notebook(self.tab_control_frame)
+        self.tab_control.pack(expand=1, fill="both")
+
+        # Add Tables Frame
+        self.button_frame = tk.Frame(root)
+        self.button_frame.pack(side="bottom", fill="x", pady=10)
+
+        # Add Table Button
+        self.add_table_button = tk.Button(
+            self.button_frame, text="Add Table", command=self.add_table
+        )
+        self.add_table_button.pack(side="left", padx=10)
+
+        # Dropdown to select a table for removal
+        self.table_selection_label = tk.Label(self.button_frame, text="Select Table to Remove")
+        self.table_selection_label.pack(side="left", padx=10)
+
+        self.table_combobox = ttk.Combobox(self.button_frame)
+        self.table_combobox.pack(side="left", padx=10)
+
+        # Remove Table Button
+        self.remove_table_button = tk.Button(
+            self.button_frame, text="Remove Table", command=self.remove_table
+        )
+        self.remove_table_button.pack(side="left", padx=10)
+
+        # Store all tables' data
+        self.tables = []
+
+        # Add the first table by default
+        self.add_table()
+
+    def add_table(self):
+        # Create a new tab for the table
+        table_index = len(self.tables)
+        tab = ttk.Frame(self.tab_control)
+        self.tab_control.add(tab, text=f"Table {table_index + 1}")
+
+        # Initialize data for this table
+        table_data = {
+            "items": [],
+            "item_name_entry": None,
+            "quantity_entry": None,
+            "cost_entry": None,
+            "customer_name_entry": None,
+            "customer_contact_entry": None,
+            "bill_area": None,
+        }
+        self.tables.append(table_data)
+
+        # Add table index to the combobox for selection
+        self.table_combobox['values'] = [f"Table {i + 1}" for i in range(len(self.tables))]
+
+        # Customer Details
+        tk.Label(tab, text="Customer Name").grid(row=0, column=0)
+        customer_name_entry = tk.Entry(tab)
+        customer_name_entry.grid(row=0, column=1)
+        table_data["customer_name_entry"] = customer_name_entry
+
+        tk.Label(tab, text="Customer Contact").grid(row=1, column=0)
+        customer_contact_entry = tk.Entry(tab)
+        customer_contact_entry.grid(row=1, column=1)
+        table_data["customer_contact_entry"] = customer_contact_entry
+
+        # Item Details
+        tk.Label(tab, text="Item Name").grid(row=2, column=0)
+        item_name_entry = tk.Entry(tab)
+        item_name_entry.grid(row=2, column=1)
+        table_data["item_name_entry"] = item_name_entry
+
+        tk.Label(tab, text="Quantity").grid(row=3, column=0)
+        quantity_entry = tk.Entry(tab)
+        quantity_entry.grid(row=3, column=1)
+        table_data["quantity_entry"] = quantity_entry
+
+        tk.Label(tab, text="Cost per Item").grid(row=4, column=0)
+        cost_entry = tk.Entry(tab)
+        cost_entry.grid(row=4, column=1)
+        table_data["cost_entry"] = cost_entry
+
+        # Buttons
+        tk.Button(tab, text="Add Item", command=lambda t=table_index: self.add_item(t)).grid(row=5, column=0)
+        tk.Button(tab, text="Reset Current Entry", command=lambda t=table_index: self.reset_current_entry(t)).grid(row=5, column=1)
+        tk.Button(tab, text="Full Reset", command=lambda t=table_index: self.full_reset(t)).grid(row=6, column=0)
+        tk.Button(tab, text="Save Bill", command=lambda t=table_index: self.save_bill(t)).grid(row=6, column=1)
+
+        # Bill Area
+        bill_area = tk.Text(tab, width=50, height=15)
+        bill_area.grid(row=7, column=0, columnspan=2)
+        table_data["bill_area"] = bill_area
+
+    def remove_table(self):
+        selected_table = self.table_combobox.get()
+        if selected_table:
+            table_index = int(selected_table.split(" ")[1]) - 1
+
+            # Remove the selected tab
+            self.tab_control.forget(table_index)
+            self.tables.pop(table_index)
+
+            # Update the combobox values
+            self.table_combobox['values'] = [f"Table {i + 1}" for i in range(len(self.tables))]
+
+            if len(self.tables) > 0:
+                self.table_combobox.set(self.table_combobox['values'][0])  # Set default selection
+            else:
+                self.table_combobox.set('')  # Reset the selection if no tables remain
+
+        else:
+            messagebox.showwarning("No Table Selected", "Please select a table to remove.")
+
+    def add_item(self, table_index):
+        table = self.tables[table_index]
+        item_name = table["item_name_entry"].get()
+        quantity = table["quantity_entry"].get()
+        cost_per_item = table["cost_entry"].get()
+
+        if item_name and quantity.isdigit() and cost_per_item.isdigit():
+            quantity = int(quantity)
+            cost_per_item = int(cost_per_item)
+            total_cost = quantity * cost_per_item
+            table["items"].append((item_name, quantity, cost_per_item, total_cost))
+            self.update_bill_area(table_index)
+        else:
+            messagebox.showwarning("Input Error", "Please enter valid item details.")
+
+        self.reset_current_entry(table_index)
+
+    def update_bill_area(self, table_index):
+        table = self.tables[table_index]
+        bill_area = table["bill_area"]
+        bill_area.delete("1.0", tk.END)
+        bill_area.insert(tk.END, f"--- Bill Area ---\n")
+        bill_area.insert(tk.END, f"Customer Name: {table['customer_name_entry'].get()}\n")
+        bill_area.insert(tk.END, f"Customer Contact: {table['customer_contact_entry'].get()}\n")
+        bill_area.insert(tk.END, f"Date: {datetime.datetime.now()}\n\n")
+        bill_area.insert(tk.END, f"{'Product Name':<15}{'Quantity':<10}{'Per Cost':<10}{'Total'}\n")
+        bill_area.insert(tk.END, "-" * 40 + "\n")
+
+        total_cost = 0
+        for item in table["items"]:
+            bill_area.insert(
+                tk.END,
+                f"{item[0]:<15}{item[1]:<10}Rs. {item[2]:<10}Rs. {item[3]}\n"
+            )
+            total_cost += item[3]
+
+        bill_area.insert(tk.END, "-" * 40 + "\n")
+        bill_area.insert(tk.END, f"Grand Total: Rs. {total_cost}\n")
+
+    def save_bill(self, table_index):
+        table = self.tables[table_index]
+        customer_name = table["customer_name_entry"].get()
+        customer_contact = table["customer_contact_entry"].get()
+        bill_no = f"Table_{table_index + 1}"
+        date = str(datetime.datetime.now())
+
+        if customer_name and customer_contact:
+            directory = os.path.join(os.path.expanduser("~"), "Desktop", "Bills")
+            os.makedirs(directory, exist_ok=True)
+            filename = os.path.join(directory, f"{bill_no}.txt")
+
+            with open(filename, "w") as f:
+                f.write(f"--- Bill Area ---\n")
+                f.write(f"Customer Name: {customer_name}\n")
+                f.write(f"Customer Contact: {customer_contact}\n")
+                f.write(f"Date: {date}\n\n")
+                f.write(f"{'Product Name':<15}{'Quantity':<10}{'Per Cost':<10}{'Total'}\n")
+                f.write("-" * 40 + "\n")
+
+                total_cost = 0
+                for item in table["items"]:
+                    f.write(f"{item[0]:<15}{item[1]:<10}Rs. {item[2]:<10}Rs. {item[3]}\n")
+                    total_cost += item[3]
+
+                f.write("-" * 40 + "\n")
+                f.write(f"Grand Total: Rs. {total_cost}\n")
+
+            messagebox.showinfo("Bill Saved", f"Bill saved as {filename}")
+        else:
+            messagebox.showwarning("Input Error", "Please enter customer details.")
+
+    def reset_current_entry(self, table_index):
+        table = self.tables[table_index]
+        table["item_name_entry"].delete(0, tk.END)
+        table["quantity_entry"].delete(0, tk.END)
+        table["cost_entry"].delete(0, tk.END)
+
+    def full_reset(self, table_index):
+        table = self.tables[table_index]
+        table["customer_name_entry"].delete(0, tk.END)
+        table["customer_contact_entry"].delete(0, tk.END)
+        table["item_name_entry"].delete(0, tk.END)
+        table["quantity_entry"].delete(0, tk.END)
+        table["cost_entry"].delete(0, tk.END)
+        table["items"].clear()
+        table["bill_area"].delete("1.0", tk.END)
+
+
+# Main
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = RestaurantBillingSystem(root)
+    root.mainloop()
